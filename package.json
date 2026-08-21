@@ -12,6 +12,7 @@
   "build": {
     "appId": "com.dsh.desktop",
     "productName": "DeepSeek Harness",
+    "electronDist": "node_modules/electron/dist",
     "directories": {
       "output": "dist",
       "buildResources": "assets"
@@ -23,12 +24,23 @@
       "assets/**/*"
     ],
     "extraResources": [
-      { "from": "config.json", "to": "config.json" },
-      { "from": "scripts", "to": "scripts" }
+      {
+        "from": "config.json",
+        "to": "config.json"
+      },
+      {
+        "from": "scripts",
+        "to": "scripts"
+      }
     ],
     "win": {
       "target": [
-        { "target": "portable", "arch": ["x64"] }
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
       ],
       "icon": "assets/app.ico"
     },
@@ -36,6 +48,14 @@
       "artifactName": "DeepSeek-Harness-${version}-portable.exe"
     },
     "npmRebuild": false,
-    "electronLanguages": ["zh-CN", "en-US"]
+    "electronLanguages": [
+      "zh-CN",
+      "en-US"
+    ]
+  },
+  "devDependencies": {
+    "electron": "^43.4.1",
+    "electron-builder": "^26.15.3",
+    "pnpm": "^11.7.0"
   }
 }

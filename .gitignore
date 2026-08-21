@@ -4,4 +4,6 @@ logs/
 .npm-cache/
 .electron-cache/
 .electron-builder-cache/
+test-dsh-home/
+test-userdata*/
 *.log

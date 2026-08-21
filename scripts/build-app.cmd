@@ -14,6 +14,9 @@ rem 将下载缓存放在项目内，便于管理
 set "npm_config_cache=%~dp0..\.npm-cache"
 set "ELECTRON_CACHE=%~dp0..\.electron-cache"
 set "ELECTRON_BUILDER_CACHE=%~dp0..\.electron-builder-cache"
+rem 国内网络加速镜像
+set "ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/"
+set "ELECTRON_BUILDER_BINARIES_MIRROR=https://npmmirror.com/mirrors/electron-builder-binaries/"
 
 echo [1/3] 安装依赖（含 electron / electron-builder）...
 call npm install --no-audit --no-fund

@@ -23,6 +23,9 @@ const net = require('node:net')
 const fs = require('node:fs')
 const path = require('node:path')
 
+// 测试/隔离用：把应用数据目录（日志等）指到指定位置，避免写入系统 %APPDATA%
+if (process.env.DSH_APP_USER_DATA) app.setPath('userData', process.env.DSH_APP_USER_DATA)
+
 // ---------------- 小工具 ----------------
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
@@ -202,10 +205,31 @@ function stopService() {
   const pid = serviceChild.pid
   log(`stopping service pid=${pid}`)
   return new Promise((resolve) => {
+    // 1) 先尝试杀进程树（覆盖可能的子进程）
     const killer = spawn('taskkill', ['/PID', String(pid), '/T', '/F'], { windowsHide: true, stdio: 'ignore' })
-    killer.on('exit', () => resolve())
-    killer.on('error', () => resolve())
-    serviceChild = null
+    killer.on('exit', (code) => {
+      if (code === 0) {
+        serviceChild = null
+        return resolve()
+      }
+      // 2) taskkill 不可用/被拒时，退化为直接结束主进程
+      try {
+        process.kill(pid)
+      } catch {
+        /* 进程可能已退出 */
+      }
+      serviceChild = null
+      resolve()
+    })
+    killer.on('error', () => {
+      try {
+        process.kill(pid)
+      } catch {
+        /* 忽略 */
+      }
+      serviceChild = null
+      resolve()
+    })
   })
 }
 
@@ -361,6 +385,13 @@ if (!gotLock) {
             if (win && !win.isDestroyed()) win.loadURL(mainConfig.url).catch(() => {})
           }, 2000)
         })
+      }
+      // 测试钩子：就绪后自动正常退出（用于验证「退出时停止服务」）
+      if (process.env.DSH_APP_TEST_EXIT_AFTER_READY) {
+        setTimeout(() => {
+          log('test hook: auto quit after ready')
+          app.quit()
+        }, 4000)
       }
     } else {
       notify({ phase: 'error', message: result.error })
