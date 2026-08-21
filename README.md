@@ -27,7 +27,7 @@ project dsh桌面应用/
   - 若 3080 端口已有 DSH 服务 → 直接打开窗口复用；
   - 若没有 → 自动以隐藏窗口启动服务（`node apps\cli\lib\bin.js web --no-open`），就绪后载入界面；
   - 关闭应用时，若服务是本应用拉起的，默认一并停止（`stopServiceOnExit` 可关）。
-- **首次运行注意**：DSH 数据（配置、凭据、会话）位于 `C:\Users\lwz12\.dsh`，与之前浏览器方式完全一致，不会丢失。
+- **首次运行注意**：DSH 数据（配置、凭据、会话）位于 `%USERPROFILE%\.dsh`，与之前浏览器方式完全一致，不会丢失。
 
 ## 更新 DSH 本体（重点）
 
@@ -69,4 +69,4 @@ git pull → pnpm install → npm run build
 
 - **双击无反应**：确认 `config.json` 的 `nodeExe`、`harnessDir` 存在；看 `%APPDATA%\DeepSeek Harness\logs\app.log`。
 - **服务启动失败/超时**：查看 `logs\service-*.log`；若 DSH 未构建，先运行「检查 DSH 更新」。
-- **想用旧浏览器方式**：原启动脚本仍在 `C:\Users\lwz12\AppData\Local\dsh-launcher\open-dsh.cmd`，可自行创建快捷方式。
+- **想用旧浏览器方式**：原启动脚本仍在 `%LOCALAPPDATA%\dsh-launcher\open-dsh.cmd`，可自行创建快捷方式。

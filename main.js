@@ -91,6 +91,10 @@ function loadConfig() {
   if (process.env.DSH_APP_STOP_ON_EXIT !== undefined) {
     config.stopServiceOnExit = !['0', 'false', 'no'].includes(String(process.env.DSH_APP_STOP_ON_EXIT).toLowerCase())
   }
+  // 展开配置值中的 %ENV_VAR%（如 %USERPROFILE%），仓库里不写死本机用户名/路径
+  for (const [k, v] of Object.entries(config)) {
+    if (typeof v === 'string') config[k] = v.replace(/%([^%]+)%/g, (m, name) => process.env[name] ?? m)
+  }
   if (!config.url) config.url = `http://${config.host}:${config.port}`
   return config
 }

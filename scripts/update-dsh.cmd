@@ -3,8 +3,8 @@ setlocal
 chcp 65001 >nul
 title DeepSeek Harness 更新
 
-set "HARNESS_DIR=C:\Users\lwz12\source\repos\deepseek-harness"
-set "NODE=C:\Users\lwz12\AppData\Local\Microsoft\WinGet\Packages\OpenJS.NodeJS_Microsoft.Winget.Source_8wekyb3d8bbwe\node-v26.7.0-win-x64\node.exe"
+set "HARNESS_DIR=%USERPROFILE%\source\repos\deepseek-harness"
+set "NODE=%USERPROFILE%\AppData\Local\Microsoft\WinGet\Packages\OpenJS.NodeJS_Microsoft.Winget.Source_8wekyb3d8bbwe\node-v26.7.0-win-x64\node.exe"
 set "PNPM_CMD=%~dp0..\node_modules\.bin\pnpm.cmd"
 
 echo ============================================
