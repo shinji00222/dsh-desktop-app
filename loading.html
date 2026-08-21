@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'" />
+  <title>DeepSeek Harness</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      background: #0b0f17;
+      color: #d7dee9;
+      font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      user-select: none;
+    }
+    .wrap { text-align: center; max-width: 560px; padding: 24px; }
+    .logo {
+      width: 72px; height: 72px; margin: 0 auto 22px;
+      border-radius: 18px;
+      background: linear-gradient(135deg, #2b6de8, #1e88e5);
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 34px; color: #fff;
+      box-shadow: 0 8px 28px rgba(43, 109, 232, .35);
+    }
+    h1 { font-size: 20px; font-weight: 600; margin-bottom: 8px; color: #f2f5fa; }
+    .status { font-size: 14px; color: #8fa1b8; min-height: 20px; margin-bottom: 24px; }
+    .spinner {
+      width: 34px; height: 34px; margin: 0 auto 26px;
+      border: 3px solid rgba(255, 255, 255, .12);
+      border-top-color: #4d8dff;
+      border-radius: 50%;
+      animation: spin 0.9s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .error {
+      display: none;
+      background: rgba(255, 92, 92, .10);
+      border: 1px solid rgba(255, 92, 92, .35);
+      color: #ffb4b4;
+      border-radius: 10px;
+      padding: 14px 16px;
+      font-size: 13px;
+      line-height: 1.6;
+      text-align: left;
+      white-space: pre-wrap;
+      word-break: break-all;
+      margin-bottom: 16px;
+    }
+    .actions { display: none; gap: 10px; justify-content: center; }
+    button {
+      background: #1c2536; color: #d7dee9;
+      border: 1px solid #33415c;
+      border-radius: 8px; padding: 8px 18px;
+      font-size: 13px; cursor: pointer;
+    }
+    button:hover { background: #243147; }
+    .hint { margin-top: 26px; font-size: 12px; color: #5f7088; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="logo">DS</div>
+    <h1>DeepSeek Harness</h1>
+    <div class="spinner" id="spinner"></div>
+    <div class="status" id="status">正在准备…</div>
+    <div class="error" id="error"></div>
+    <div class="actions" id="actions">
+      <button id="logBtn">打开日志目录</button>
+    </div>
+    <div class="hint" id="hint">应用窗口将在服务就绪后自动载入界面</div>
+  </div>
+
+  <script>
+    const statusEl = document.getElementById('status')
+    const errorEl = document.getElementById('error')
+    const actionsEl = document.getElementById('actions')
+    const spinnerEl = document.getElementById('spinner')
+    const hintEl = document.getElementById('hint')
+
+    document.getElementById('logBtn').addEventListener('click', () => {
+      if (window.dshApp) window.dshApp.openLogDir()
+    })
+
+    if (window.dshApp) {
+      window.dshApp.onStatus((s) => {
+        if (s.phase === 'starting') {
+          spinnerEl.style.display = 'block'
+          statusEl.textContent = s.message || '正在启动服务…'
+        } else if (s.phase === 'ready') {
+          statusEl.textContent = '服务已就绪，正在载入界面…'
+        } else if (s.phase === 'error') {
+          spinnerEl.style.display = 'none'
+          statusEl.textContent = '启动失败'
+          errorEl.style.display = 'block'
+          errorEl.textContent = s.message || '未知错误'
+          actionsEl.style.display = 'flex'
+          hintEl.textContent = '可点击上方按钮查看日志，或修改 config.json 后重试'
+        }
+      })
+    }
+  </script>
+</body>
+</html>

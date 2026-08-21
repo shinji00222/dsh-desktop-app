@@ -1,0 +1,41 @@
+{
+  "name": "dsh-desktop-app",
+  "productName": "DeepSeek Harness",
+  "version": "1.0.0",
+  "description": "DeepSeek Harness 桌面应用壳：独立窗口 + 本地服务守护，替代浏览器启动方式",
+  "main": "main.js",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "pack": "electron-builder --win portable"
+  },
+  "build": {
+    "appId": "com.dsh.desktop",
+    "productName": "DeepSeek Harness",
+    "directories": {
+      "output": "dist",
+      "buildResources": "assets"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "loading.html",
+      "assets/**/*"
+    ],
+    "extraResources": [
+      { "from": "config.json", "to": "config.json" },
+      { "from": "scripts", "to": "scripts" }
+    ],
+    "win": {
+      "target": [
+        { "target": "portable", "arch": ["x64"] }
+      ],
+      "icon": "assets/app.ico"
+    },
+    "portable": {
+      "artifactName": "DeepSeek-Harness-${version}-portable.exe"
+    },
+    "npmRebuild": false,
+    "electronLanguages": ["zh-CN", "en-US"]
+  }
+}
