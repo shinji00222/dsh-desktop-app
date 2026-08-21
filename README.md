@@ -23,7 +23,7 @@ project dsh桌面应用/
 
 ## 使用
 
-- **启动**：双击桌面快捷方式「DeepSeek Harness」（或 `dist\DeepSeek-Harness-1.0.0-portable.exe`）。
+- **启动**：双击桌面「DeepSeek-Harness.exe」（`dist\` 里打包产物的桌面副本）。
   - 若 3080 端口已有 DSH 服务 → 直接打开窗口复用；
   - 若没有 → 自动以隐藏窗口启动服务（`node apps\cli\lib\bin.js web --no-open`），就绪后载入界面；
   - 关闭应用时，若服务是本应用拉起的，默认一并停止（`stopServiceOnExit` 可关）。
@@ -58,6 +58,7 @@ git pull → pnpm install → npm run build
 ## 重新打包应用
 
 改了壳代码（main.js 等）后，双击 `scripts\build-app.cmd`，产物在 `dist\`。
+打包完成后，把 `dist\` 下新的 portable exe **复制到桌面替换** `DeepSeek-Harness.exe` 即可（桌面上的就是 `dist\` 产物的副本）。
 打包缓存放在项目内（`.npm-cache` / `.electron-cache` / `.electron-builder-cache`），可随时删除重下。
 
 ## 日志
