@@ -6,4 +6,5 @@ logs/
 .electron-builder-cache/
 test-dsh-home/
 test-userdata*/
+backups/
 *.log
