@@ -143,6 +143,43 @@ function isPortOpen(host, port, timeoutMs = 500) {
   })
 }
 
+function extractServiceUrl(logPath, fallback) {
+  try {
+    const text = fs.readFileSync(logPath, 'utf8')
+    const match = text.match(/dsh web:\s+(https?:\/\/\S+)/i)
+    return match ? match[1].trim() : fallback
+  } catch {
+    return fallback
+  }
+}
+
+function findLatestServiceUrl(config) {
+  try {
+    const logDir = path.join(app.getPath('userData'), 'logs')
+    const files = fs
+      .readdirSync(logDir)
+      .filter((name) => name.startsWith('service-') && name.endsWith('.log'))
+      .sort()
+      .reverse()
+    for (const name of files) {
+      const url = extractServiceUrl(path.join(logDir, name), config.url)
+      if (url !== config.url) return url
+    }
+  } catch {
+    /* The service may not have produced a log yet. */
+  }
+  return config.url
+}
+
+async function waitForServiceUrl(logPath, fallback) {
+  for (let attempt = 0; attempt < 20; attempt++) {
+    const url = extractServiceUrl(logPath, fallback)
+    if (url !== fallback) return url
+    await sleep(100)
+  }
+  return fallback
+}
+
 function startService(config) {
   const logDir = path.join(app.getPath('userData'), 'logs')
   fs.mkdirSync(logDir, { recursive: true })
@@ -174,6 +211,7 @@ function startService(config) {
 async function ensureService(config) {
   if (await isPortOpen(config.host, config.port)) {
     startedByUs = false
+    config.url = findLatestServiceUrl(config)
     return { ok: true, reused: true }
   }
   const checkErr = validateConfig(config)
@@ -201,7 +239,10 @@ async function ensureService(config) {
   const deadline = Date.now() + (config.waitTimeoutMs || 90000)
   while (Date.now() < deadline) {
     if (exited) return { ok: false, error: `DSH 服务未能保持运行（${describeExit(exited)}）\n请通过「应用 → 检查 DSH 更新」修复或查看日志` }
-    if (await isPortOpen(config.host, config.port)) return { ok: true, reused: false }
+    if (await isPortOpen(config.host, config.port)) {
+      config.url = await waitForServiceUrl(svc.logPath, config.url)
+      return { ok: true, reused: false }
+    }
     await sleep(300)
   }
   return { ok: false, error: `等待服务就绪超时（${config.waitTimeoutMs}ms）\n请查看日志` }

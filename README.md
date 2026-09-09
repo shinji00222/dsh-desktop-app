@@ -4,6 +4,7 @@
 
 应用只是一个"壳"：它负责拉起/守护本地 DSH 服务（默认 `http://127.0.0.1:3080`），并用独立窗口展示界面。
 **它不打包 DSH 本体**，因此 DSH 更新后应用无需重新安装——打开即是新版本。
+新版本 DSH 会给本地 Web 地址附加一次性 token；桌面壳会自动从服务日志读取 token URL，不要手动删掉查询参数。
 
 ## 目录结构
 
@@ -34,7 +35,7 @@ project dsh桌面应用/
 应用内菜单「应用 → 检查 DSH 更新…」，或双击 `scripts\update-dsh.cmd`：
 
 ```
-git pull → pnpm install → npm run build
+  git pull → pnpm install --frozen-lockfile → pnpm run build
 ```
 
 完成后**重新打开应用**即是新版本，**无需重新打包/重装应用**。

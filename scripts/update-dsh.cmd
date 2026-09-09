@@ -5,7 +5,7 @@ title DeepSeek Harness 更新
 
 set "HARNESS_DIR=%USERPROFILE%\source\repos\deepseek-harness"
 set "NODE=%USERPROFILE%\AppData\Local\Microsoft\WinGet\Packages\OpenJS.NodeJS_Microsoft.Winget.Source_8wekyb3d8bbwe\node-v26.7.0-win-x64\node.exe"
-set "PNPM_CMD=%~dp0..\node_modules\.bin\pnpm.cmd"
+set "PNPM_CMD=pnpm.cmd"
 
 echo ============================================
 echo   DeepSeek Harness 更新（DSH 本体）
@@ -30,12 +30,13 @@ if errorlevel 1 (
 
 echo.
 echo [2/4] 安装依赖（pnpm install）...
-if not exist "%PNPM_CMD%" (
-  echo [错误] 项目内未找到 pnpm，请先在应用项目目录运行 npm install。
+where pnpm.cmd >nul 2>&1
+if errorlevel 1 (
+  echo [错误] 系统 PATH 中未找到 pnpm.cmd，请先安装 Node.js 22+ 并确认 pnpm 可用。
   pause
   exit /b 1
 )
-call "%PNPM_CMD%" install
+call "%PNPM_CMD%" install --frozen-lockfile
 if errorlevel 1 (
   echo.
   echo [错误] 依赖安装失败。
@@ -45,7 +46,7 @@ if errorlevel 1 (
 
 echo.
 echo [3/4] 构建 DSH（npm run build）...
-call npm run build
+call "%PNPM_CMD%" run build
 if errorlevel 1 (
   echo.
   echo [错误] 构建失败。请将上方报错信息截图反馈。
