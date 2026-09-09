@@ -2,7 +2,7 @@
 
 把 DeepSeek Harness 打包成 Windows 桌面应用：**独立窗口加载，不再打开浏览器标签页**。
 
-应用只是一个"壳"：它负责拉起/守护本地 DSH 服务（默认 `http://127.0.0.1:3080`），并用独立窗口展示界面。
+应用只是一个"壳"：它负责拉起/守护全局 npm DSH 服务（默认 `http://127.0.0.1:3080`），并用独立窗口展示界面。
 **它不打包 DSH 本体**，因此 DSH 更新后应用无需重新安装——打开即是新版本。
 新版本 DSH 会给本地 Web 地址附加一次性 token；桌面壳会自动从服务日志读取 token URL，不要手动删掉查询参数。
 
@@ -26,7 +26,7 @@ project dsh桌面应用/
 
 - **启动**：双击桌面「DeepSeek-Harness.exe」（`dist\` 里打包产物的桌面副本）。
   - 若 3080 端口已有 DSH 服务 → 直接打开窗口复用；
-  - 若没有 → 自动以隐藏窗口启动服务（`node apps\cli\lib\bin.js web --no-open`），就绪后载入界面；
+  - 若没有 → 自动以隐藏窗口启动服务（`dsh.cmd web --no-open`），就绪后载入界面；
   - 关闭应用时，若服务是本应用拉起的，默认一并停止（`stopServiceOnExit` 可关）。
 - **首次运行注意**：DSH 数据（配置、凭据、会话）位于 `%USERPROFILE%\.dsh`，与之前浏览器方式完全一致，不会丢失。
 
@@ -35,19 +35,26 @@ project dsh桌面应用/
 应用内菜单「应用 → 检查 DSH 更新…」，或双击 `scripts\update-dsh.cmd`：
 
 ```
-  git pull → pnpm install --frozen-lockfile → pnpm run build
+  备份 .dsh → pnpm add -g @deepseek-ai/dsh@0.1.5-alpha.2
 ```
 
 完成后**重新打开应用**即是新版本，**无需重新打包/重装应用**。
+更新脚本不会使用 `@latest`，因为 npm 的 latest 可能指向更旧的发行线。更新前会在 `backups\` 保存设置、会话、存储、profile 配置和旧版本记录；不会把备份提交到 Git。
+
+需要回退时运行：
+
+```text
+scripts\rollback-dsh.cmd 0.1.5-alpha.1
+```
 
 ## 配置说明（config.json）
 
 | 字段 | 说明 |
 |---|---|
 | `url` / `host` / `port` | 服务地址（默认 127.0.0.1:3080） |
-| `harnessDir` | DSH 源码目录 |
-| `nodeExe` | Node 可执行文件路径 |
-| `cliEntry` | CLI 入口相对路径（apps\cli\lib\bin.js） |
+| `dshCommand` | 全局 DSH 命令（默认 `%LOCALAPPDATA%\\pnpm\\bin\\dsh.cmd`） |
+| `dshVersion` | 当前固定的 DSH 版本 |
+| `dshWorkingDir` | DSH 工作目录 |
 | `waitTimeoutMs` | 等待服务就绪超时（毫秒） |
 | `stopServiceOnExit` | 关闭应用时是否停止由本应用拉起的服务 |
 | `windowWidth` / `windowHeight` | 窗口尺寸 |
@@ -68,6 +75,6 @@ project dsh桌面应用/
 
 ## 常见问题
 
-- **双击无反应**：确认 `config.json` 的 `nodeExe`、`harnessDir` 存在；看 `%APPDATA%\DeepSeek Harness\logs\app.log`。
-- **服务启动失败/超时**：查看 `logs\service-*.log`；若 DSH 未构建，先运行「检查 DSH 更新」。
+- **双击无反应**：先运行 `scripts\update-dsh.cmd` 安装固定版 DSH；看 `%APPDATA%\DeepSeek Harness\logs\app.log`。
+- **服务启动失败/超时**：查看 `%APPDATA%\DeepSeek Harness\logs\service-*.log`；确认 `where dsh.cmd` 能找到全局命令。
 - **想用旧浏览器方式**：原启动脚本仍在 `%LOCALAPPDATA%\dsh-launcher\open-dsh.cmd`，可自行创建快捷方式。

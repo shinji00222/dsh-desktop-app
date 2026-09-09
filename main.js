@@ -19,7 +19,7 @@
  */
 
 const { app, BrowserWindow, Menu, dialog, ipcMain, shell } = require('electron')
-const { spawn } = require('node:child_process')
+const { spawn, spawnSync } = require('node:child_process')
 const net = require('node:net')
 const fs = require('node:fs')
 const path = require('node:path')
@@ -46,9 +46,9 @@ const DEFAULTS = {
   appName: 'DeepSeek Harness',
   host: '127.0.0.1',
   port: 3080,
-  harnessDir: '',
-  nodeExe: 'node',
-  cliEntry: 'apps\\cli\\lib\\bin.js',
+  dshCommand: '%LOCALAPPDATA%\\pnpm\\bin\\dsh.cmd',
+  dshVersion: '0.1.5-alpha.2',
+  dshWorkingDir: process.env.USERPROFILE || process.cwd(),
   waitTimeoutMs: 90000,
   stopServiceOnExit: true,
   windowWidth: 1360,
@@ -79,9 +79,9 @@ function loadConfig() {
     DSH_APP_URL: 'url',
     DSH_APP_HOST: 'host',
     DSH_APP_PORT: 'port',
-    DSH_APP_HARNESS_DIR: 'harnessDir',
-    DSH_APP_NODE: 'nodeExe',
-    DSH_APP_CLI: 'cliEntry',
+    DSH_APP_COMMAND: 'dshCommand',
+    DSH_APP_VERSION: 'dshVersion',
+    DSH_APP_WORKDIR: 'dshWorkingDir',
     DSH_APP_WAIT_MS: 'waitTimeoutMs',
   }
   for (const [env, key] of Object.entries(envMap)) {
@@ -103,16 +103,15 @@ function validateConfig(config) {
   if (!Number.isInteger(config.port) || config.port < 1 || config.port > 65535) {
     return `端口配置无效：${config.port}（config.json 的 port）`
   }
-  if (!config.harnessDir) return '未配置 harnessDir（config.json）'
-  if (!fs.existsSync(path.join(config.harnessDir, 'package.json'))) {
-    return `DSH 源码目录不存在：${config.harnessDir}\n请在 config.json 中修正 harnessDir`
+  if (!config.dshCommand) return '未配置 dshCommand（config.json）'
+  if (!config.dshWorkingDir || !fs.existsSync(config.dshWorkingDir)) {
+    return `DSH 工作目录不存在：${config.dshWorkingDir}\n请在 config.json 中修正 dshWorkingDir`
   }
-  if (!fs.existsSync(config.nodeExe)) {
-    return `Node 未找到：${config.nodeExe}\n请在 config.json 中修正 nodeExe`
-  }
-  const cli = path.join(config.harnessDir, config.cliEntry)
-  if (!fs.existsSync(cli)) {
-    return `DSH 尚未构建：${config.cliEntry}\n请通过「应用 → 检查 DSH 更新」构建`
+  const found = path.isAbsolute(config.dshCommand)
+    ? fs.existsSync(config.dshCommand)
+    : spawnSync('where.exe', [config.dshCommand], { encoding: 'utf8', windowsHide: true }).status === 0
+  if (!found) {
+    return `未找到全局 DSH 命令：${config.dshCommand}\n请先运行「更新 DSH.cmd」安装固定版本 ${config.dshVersion}`
   }
   return null
 }
@@ -180,22 +179,28 @@ async function waitForServiceUrl(logPath, fallback) {
   return fallback
 }
 
+function quoteCmdArg(value) {
+  return `"${String(value).replaceAll('"', '\\"')}"`
+}
+
 function startService(config) {
   const logDir = path.join(app.getPath('userData'), 'logs')
   fs.mkdirSync(logDir, { recursive: true })
   const stamp = new Date().toISOString().replace(/[:.]/g, '-')
   const logPath = path.join(logDir, `service-${stamp}.log`)
   const out = fs.createWriteStream(logPath, { flags: 'a' })
-  const args = [config.cliEntry, 'web', '--no-open', '--host', config.host, '--port', String(config.port)]
-  log(`spawn service: ${config.nodeExe} ${args.join(' ')} cwd=${config.harnessDir}`)
+  const args = ['web', '--no-open', '--host', config.host, '--port', String(config.port)]
+  const commandLine = [config.dshCommand, ...args].map(quoteCmdArg).join(' ')
+  const shell = process.env.ComSpec || 'cmd.exe'
+  log(`spawn service: ${commandLine} cwd=${config.dshWorkingDir}`)
   // createWriteStream 是异步打开文件（fd 初始为 null），必须等 open 事件后再 spawn，
   // 否则 spawn 会因 stdio 流的 fd 未就绪而抛错
   return new Promise((resolve, reject) => {
     out.once('error', reject)
     out.once('open', () => {
       try {
-        const child = spawn(config.nodeExe, args, {
-          cwd: config.harnessDir,
+        const child = spawn(shell, ['/d', '/s', '/c', commandLine], {
+          cwd: config.dshWorkingDir,
           detached: true,
           windowsHide: true,
           stdio: ['ignore', out, out],
@@ -470,7 +475,7 @@ function runDshUpdate() {
     .showMessageBox(win, {
       type: 'question',
       title: '检查 DSH 更新',
-      message: '将打开一个命令行窗口执行：git pull → 安装依赖 → 构建 DSH。\n期间请保持窗口打开，构建完成后关闭窗口，再重新打开本应用。',
+      message: `将打开一个命令行窗口安装固定版 DSH ${config.dshVersion}，并在更新前备份本地数据。\n完成后重新打开本应用即可。`,
       buttons: ['开始更新', '取消'],
       defaultId: 0,
       cancelId: 1,

@@ -1,62 +1,58 @@
 @echo off
-setlocal
+setlocal EnableExtensions
 chcp 65001 >nul
-title DeepSeek Harness 更新
+title DeepSeek Harness update
 
-set "HARNESS_DIR=%USERPROFILE%\source\repos\deepseek-harness"
-set "NODE=%USERPROFILE%\AppData\Local\Microsoft\WinGet\Packages\OpenJS.NodeJS_Microsoft.Winget.Source_8wekyb3d8bbwe\node-v26.7.0-win-x64\node.exe"
-set "PNPM_CMD=pnpm.cmd"
+set "DSH_VERSION=0.1.5-alpha.2"
+set "DSH_BIN=%LOCALAPPDATA%\pnpm\bin\dsh.cmd"
+set "SCRIPT_DIR=%~dp0"
+set "PROJECT_DIR=%SCRIPT_DIR%.."
+for /f "usebackq delims=" %%I in (`powershell -NoProfile -Command "(Get-Date).ToString('yyyyMMdd-HHmmss')"`) do set "STAMP=%%I"
+set "BACKUP_DIR=%PROJECT_DIR%backups\%STAMP%"
 
 echo ============================================
-echo   DeepSeek Harness 更新（DSH 本体）
+echo   DeepSeek Harness update
+echo   fixed version: %DSH_VERSION%
 echo ============================================
 echo.
-if not exist "%HARNESS_DIR%\.git" (
-  echo [错误] 未找到 DSH 仓库: %HARNESS_DIR%
-  echo 请检查 scripts\update-dsh.cmd 中的 HARNESS_DIR 配置。
-  pause
-  exit /b 1
-)
 
-echo [1/4] git pull（拉取最新代码）...
-cd /d "%HARNESS_DIR%"
-git pull --ff-only
+if not exist "%BACKUP_DIR%" mkdir "%BACKUP_DIR%"
+echo [1/4] Backing up local DSH data...
+powershell -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%backup-dsh-data.ps1" -Source "%USERPROFILE%\.dsh" -Destination "%BACKUP_DIR%\dsh"
 if errorlevel 1 (
-  echo.
-  echo [错误] git pull 失败。请检查网络，或本地是否有未提交的改动。
+  echo [ERROR] Backup failed. Update was not started.
   pause
   exit /b 1
 )
 
-echo.
-echo [2/4] 安装依赖（pnpm install）...
 where pnpm.cmd >nul 2>&1
 if errorlevel 1 (
-  echo [错误] 系统 PATH 中未找到 pnpm.cmd，请先安装 Node.js 22+ 并确认 pnpm 可用。
-  pause
-  exit /b 1
-)
-call "%PNPM_CMD%" install --frozen-lockfile
-if errorlevel 1 (
-  echo.
-  echo [错误] 依赖安装失败。
+  echo [ERROR] pnpm.cmd was not found in PATH.
   pause
   exit /b 1
 )
 
-echo.
-echo [3/4] 构建 DSH（npm run build）...
-call "%PNPM_CMD%" run build
+echo [2/4] Recording current DSH version...
+if exist "%DSH_BIN%" "%DSH_BIN%" --version > "%BACKUP_DIR%\version-before.txt" 2>nul
+
+echo [3/4] Installing DSH %DSH_VERSION%...
+call pnpm.cmd add -g @deepseek-ai/dsh@%DSH_VERSION%
 if errorlevel 1 (
-  echo.
-  echo [错误] 构建失败。请将上方报错信息截图反馈。
+  echo [ERROR] DSH installation failed. The backup is at:
+  echo %BACKUP_DIR%
   pause
   exit /b 1
 )
 
-echo.
-echo [4/4] 完成！
-echo.
-echo DSH 已更新到最新版。请关闭并重新打开桌面应用。
-echo （应用本体无需重新安装，打开即是新版本）
+if not exist "%DSH_BIN%" (
+  echo [ERROR] Installation finished but dsh.cmd was not created at:
+  echo %DSH_BIN%
+  pause
+  exit /b 1
+)
+"%DSH_BIN%" --version > "%BACKUP_DIR%\version-after.txt" 2>nul
+
+echo [4/4] Done.
+echo DSH %DSH_VERSION% is installed. Close and reopen the desktop app.
+echo Backup: %BACKUP_DIR%
 pause
