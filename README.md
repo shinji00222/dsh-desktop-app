@@ -27,7 +27,7 @@ project dsh桌面应用/
 - **启动**：双击桌面「DeepSeek-Harness.exe」（`dist\` 里打包产物的桌面副本）。
   - 若 3080 端口已有 DSH 服务 → 直接打开窗口复用；
   - 若没有 → 自动以隐藏窗口启动服务（`dsh.cmd web --no-open`），就绪后载入界面；
-  - 关闭应用时，若服务是本应用拉起的，默认一并停止（`stopServiceOnExit` 可关）。
+  - 关闭应用时默认保留后台 DSH 服务，下一次打开会直接复用（`stopServiceOnExit` 可改）。
 - **首次运行注意**：DSH 数据（配置、凭据、会话）位于 `%USERPROFILE%\.dsh`，与之前浏览器方式完全一致，不会丢失。
 
 ## 更新 DSH 本体（重点）
@@ -57,7 +57,7 @@ scripts\rollback-dsh.cmd 0.1.5-alpha.1
 | `nodeExe` | 启动 DSH 时补进 PATH 的 Node 可执行文件；用于避免桌面双击环境找不到 `node` |
 | `dshWorkingDir` | DSH 工作目录 |
 | `waitTimeoutMs` | 等待服务就绪超时（毫秒） |
-| `stopServiceOnExit` | 关闭应用时是否停止由本应用拉起的服务 |
+| `stopServiceOnExit` | 关闭应用时是否停止由本应用拉起的服务；默认 `false` 以提升下次启动稳定性 |
 | `windowWidth` / `windowHeight` | 窗口尺寸 |
 
 配置文件优先级：环境变量 `DSH_APP_*` > `DSH_APP_CONFIG` 指定文件 > 打包内 `resources/config.json` > exe 同目录 `config.json`（开发时为项目根 `config.json`）。

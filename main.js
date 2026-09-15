@@ -22,6 +22,8 @@ const { app, BrowserWindow, Menu, dialog, ipcMain, shell } = require('electron')
 const { spawn, spawnSync } = require('node:child_process')
 const net = require('node:net')
 const fs = require('node:fs')
+const http = require('node:http')
+const https = require('node:https')
 const path = require('node:path')
 
 // 测试/隔离用：把应用数据目录（日志等）指到指定位置，避免写入系统 %APPDATA%
@@ -51,7 +53,7 @@ const DEFAULTS = {
   nodeExe: '',
   dshWorkingDir: process.env.USERPROFILE || process.cwd(),
   waitTimeoutMs: 90000,
-  stopServiceOnExit: true,
+  stopServiceOnExit: false,
   windowWidth: 1360,
   windowHeight: 860,
 }
@@ -223,6 +225,30 @@ async function waitForServiceUrl(logPath, fallback) {
   return fallback
 }
 
+function probeHttpOk(url, timeoutMs = 3000) {
+  return new Promise((resolve) => {
+    const client = url.startsWith('https:') ? https : http
+    const req = client.get(url, { timeout: timeoutMs }, (res) => {
+      res.resume()
+      resolve(res.statusCode >= 200 && res.statusCode < 400)
+    })
+    req.once('timeout', () => {
+      req.destroy()
+      resolve(false)
+    })
+    req.once('error', () => resolve(false))
+  })
+}
+
+async function waitForHttpOk(url, timeoutMs = 30000) {
+  const deadline = Date.now() + timeoutMs
+  while (Date.now() < deadline) {
+    if (await probeHttpOk(url)) return true
+    await sleep(500)
+  }
+  return false
+}
+
 function quoteCmdArg(value) {
   return `"${String(value).replaceAll('"', '\\"')}"`
 }
@@ -361,6 +387,8 @@ function stopService() {
 let win = null
 let mainConfig = null
 let loadFailCount = 0
+let loadRetryTimer = null
+let appLoaded = false
 
 function notify(status) {
   if (win && !win.isDestroyed()) win.webContents.send('app-status', status)
@@ -386,17 +414,37 @@ function openExternalWindow(url) {
 }
 
 async function loadApp(config) {
-  for (let attempt = 1; attempt <= 3; attempt++) {
+  if (!win || win.isDestroyed() || appLoaded) return appLoaded
+  await waitForHttpOk(config.url, 30000)
+  for (let attempt = 1; attempt <= 8; attempt++) {
+    if (!win || win.isDestroyed() || appLoaded) return appLoaded
     try {
       await win.loadURL(config.url)
       win.setTitle(config.appName)
+      appLoaded = true
       return true
     } catch (err) {
       log(`loadURL attempt ${attempt} failed: ${err.message}`)
-      if (attempt < 3) await sleep(1500)
+      if (attempt < 8) {
+        await waitForHttpOk(config.url, 5000)
+        await sleep(1500)
+      }
     }
   }
   return false
+}
+
+function startLoadRetry(config) {
+  if (loadRetryTimer) clearInterval(loadRetryTimer)
+  loadRetryTimer = setInterval(() => {
+    if (!win || win.isDestroyed() || appLoaded) {
+      clearInterval(loadRetryTimer)
+      loadRetryTimer = null
+      return
+    }
+    loadApp(config).catch((err) => log(`load retry failed: ${err.message}`))
+  }, 5000)
+  if (loadRetryTimer.unref) loadRetryTimer.unref()
 }
 
 function createWindow(config) {
@@ -437,6 +485,8 @@ function createWindow(config) {
   // 可靠性：加载失败/渲染进程崩溃自动重载；无响应给出选择
   win.webContents.on('did-finish-load', () => {
     loadFailCount = 0
+    const currentUrl = win.webContents.getURL()
+    if (isSameOrigin(currentUrl, config)) appLoaded = true
   })
   win.webContents.on('did-fail-load', (_e, code, desc, url) => {
     if (!isSameOrigin(url, config) || loadFailCount >= 3) return
@@ -448,6 +498,7 @@ function createWindow(config) {
   })
   win.webContents.on('render-process-gone', (_e, details) => {
     log(`renderer gone: ${details.reason}`)
+    appLoaded = false
     if (details.reason !== 'clean-exit') {
       setTimeout(() => {
         if (win && !win.isDestroyed()) win.webContents.reload()
@@ -477,6 +528,10 @@ function createWindow(config) {
   })
 
   win.on('closed', () => {
+    if (loadRetryTimer) {
+      clearInterval(loadRetryTimer)
+      loadRetryTimer = null
+    }
     win = null
   })
 }
@@ -556,7 +611,10 @@ if (!app.requestSingleInstanceLock()) {
     const result = await ensureService(mainConfig)
     if (result.ok) {
       notify({ phase: 'ready', message: '服务已就绪' })
-      if (win && !win.isDestroyed()) loadApp(mainConfig)
+      if (win && !win.isDestroyed()) {
+        loadApp(mainConfig)
+        startLoadRetry(mainConfig)
+      }
       // 测试钩子：就绪后自动正常退出（用于验证「退出时停止服务」）
       if (process.env.DSH_APP_TEST_EXIT_AFTER_READY) {
         setTimeout(() => {
