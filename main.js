@@ -48,6 +48,7 @@ const DEFAULTS = {
   port: 3080,
   dshCommand: '%LOCALAPPDATA%\\pnpm\\bin\\dsh.cmd',
   dshVersion: '0.1.5-alpha.2',
+  nodeExe: '',
   dshWorkingDir: process.env.USERPROFILE || process.cwd(),
   waitTimeoutMs: 90000,
   stopServiceOnExit: true,
@@ -81,6 +82,8 @@ function loadConfig() {
     DSH_APP_PORT: 'port',
     DSH_APP_COMMAND: 'dshCommand',
     DSH_APP_VERSION: 'dshVersion',
+    DSH_APP_NODE: 'nodeExe',
+    DSH_APP_NODE_EXE: 'nodeExe',
     DSH_APP_WORKDIR: 'dshWorkingDir',
     DSH_APP_WAIT_MS: 'waitTimeoutMs',
   }
@@ -104,6 +107,9 @@ function validateConfig(config) {
     return `端口配置无效：${config.port}（config.json 的 port）`
   }
   if (!config.dshCommand) return '未配置 dshCommand（config.json）'
+  if (config.nodeExe && !fs.existsSync(config.nodeExe)) {
+    return `Node 可执行文件不存在：${config.nodeExe}\n请在 config.json 中修正 nodeExe`
+  }
   if (!config.dshWorkingDir || !fs.existsSync(config.dshWorkingDir)) {
     return `DSH 工作目录不存在：${config.dshWorkingDir}\n请在 config.json 中修正 dshWorkingDir`
   }
@@ -114,6 +120,44 @@ function validateConfig(config) {
     return `未找到全局 DSH 命令：${config.dshCommand}\n请先运行「更新 DSH.cmd」安装固定版本 ${config.dshVersion}`
   }
   return null
+}
+
+function buildServiceEnv(config) {
+  const env = { ...process.env }
+  const pathKey = Object.keys(env).find((key) => key.toLowerCase() === 'path') || 'Path'
+  const prepend = []
+
+  if (config.nodeExe) prepend.push(path.dirname(config.nodeExe))
+  if (path.isAbsolute(config.dshCommand)) prepend.push(path.dirname(config.dshCommand))
+
+  const seen = new Set()
+  const unique = prepend.filter((dir) => {
+    const key = dir.toLowerCase()
+    if (seen.has(key) || !fs.existsSync(dir)) return false
+    seen.add(key)
+    return true
+  })
+  if (unique.length) {
+    env[pathKey] = [...unique, env[pathKey]].filter(Boolean).join(path.delimiter)
+    log(`service PATH prepend: ${unique.join(path.delimiter)}`)
+  }
+  return env
+}
+
+function resolveDshEntrypoint(config) {
+  if (!config.nodeExe || !path.isAbsolute(config.dshCommand) || !fs.existsSync(config.dshCommand)) return null
+  try {
+    const commandDir = path.dirname(config.dshCommand)
+    const text = fs.readFileSync(config.dshCommand, 'utf8')
+    const match = text.match(/"%~dp0([^"]+@deepseek-ai\\dsh\\lib\\bin\.js)"/i)
+    if (!match) return null
+    const suffix = match[1].replace(/^[\\/]+/, '')
+    const entrypoint = path.resolve(commandDir, suffix)
+    return fs.existsSync(entrypoint) ? entrypoint : null
+  } catch (err) {
+    log(`resolve dsh entrypoint failed: ${err.message}`)
+    return null
+  }
 }
 
 // ---------------- 服务管理 ----------------
@@ -190,19 +234,22 @@ function startService(config) {
   const logPath = path.join(logDir, `service-${stamp}.log`)
   const out = fs.createWriteStream(logPath, { flags: 'a' })
   const args = ['web', '--no-open', '--host', config.host, '--port', String(config.port)]
-  const commandLine = [config.dshCommand, ...args].map(quoteCmdArg).join(' ')
-  const shell = process.env.ComSpec || 'cmd.exe'
-  log(`spawn service: ${commandLine} cwd=${config.dshWorkingDir}`)
+  const entrypoint = resolveDshEntrypoint(config)
+  const serviceCommand = entrypoint ? config.nodeExe : config.dshCommand
+  const serviceArgs = entrypoint ? [entrypoint, ...args] : args
+  log(`spawn service: ${[serviceCommand, ...serviceArgs].map(quoteCmdArg).join(' ')} cwd=${config.dshWorkingDir}`)
   // createWriteStream 是异步打开文件（fd 初始为 null），必须等 open 事件后再 spawn，
   // 否则 spawn 会因 stdio 流的 fd 未就绪而抛错
   return new Promise((resolve, reject) => {
     out.once('error', reject)
     out.once('open', () => {
       try {
-        const child = spawn(shell, ['/d', '/s', '/c', commandLine], {
+        const child = spawn(serviceCommand, serviceArgs, {
           cwd: config.dshWorkingDir,
+          env: buildServiceEnv(config),
           detached: true,
           windowsHide: true,
+          shell: !entrypoint,
           stdio: ['ignore', out, out],
         })
         resolve({ child, logPath })

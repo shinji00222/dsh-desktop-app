@@ -54,6 +54,7 @@ scripts\rollback-dsh.cmd 0.1.5-alpha.1
 | `url` / `host` / `port` | 服务地址（默认 127.0.0.1:3080） |
 | `dshCommand` | 全局 DSH 命令（默认 `%LOCALAPPDATA%\\pnpm\\bin\\dsh.cmd`） |
 | `dshVersion` | 当前固定的 DSH 版本 |
+| `nodeExe` | 启动 DSH 时补进 PATH 的 Node 可执行文件；用于避免桌面双击环境找不到 `node` |
 | `dshWorkingDir` | DSH 工作目录 |
 | `waitTimeoutMs` | 等待服务就绪超时（毫秒） |
 | `stopServiceOnExit` | 关闭应用时是否停止由本应用拉起的服务 |
@@ -61,7 +62,7 @@ scripts\rollback-dsh.cmd 0.1.5-alpha.1
 
 配置文件优先级：环境变量 `DSH_APP_*` > `DSH_APP_CONFIG` 指定文件 > 打包内 `resources/config.json` > exe 同目录 `config.json`（开发时为项目根 `config.json`）。
 
-常用环境变量覆盖：`DSH_APP_PORT`、`DSH_APP_HARNESS_DIR`、`DSH_APP_NODE`、`DSH_APP_STOP_ON_EXIT`。
+常用环境变量覆盖：`DSH_APP_PORT`、`DSH_APP_COMMAND`、`DSH_APP_NODE`、`DSH_APP_WORKDIR`、`DSH_APP_STOP_ON_EXIT`。
 
 ## 重新打包应用
 
@@ -77,4 +78,5 @@ scripts\rollback-dsh.cmd 0.1.5-alpha.1
 
 - **双击无反应**：先运行 `scripts\update-dsh.cmd` 安装固定版 DSH；看 `%APPDATA%\DeepSeek Harness\logs\app.log`。
 - **服务启动失败/超时**：查看 `%APPDATA%\DeepSeek Harness\logs\service-*.log`；确认 `where dsh.cmd` 能找到全局命令。
+- **双击后 code=1，但 PowerShell 手动运行正常**：检查 `config.json` 的 `nodeExe` 是否仍指向有效 Node；桌面壳会把该目录补进服务启动 PATH。
 - **想用旧浏览器方式**：原启动脚本仍在 `%LOCALAPPDATA%\dsh-launcher\open-dsh.cmd`，可自行创建快捷方式。
