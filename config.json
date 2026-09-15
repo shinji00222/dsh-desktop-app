@@ -6,6 +6,7 @@
   "dshCommand": "%LOCALAPPDATA%\\pnpm\\bin\\dsh.cmd",
   "dshVersion": "0.1.5-alpha.2",
   "nodeExe": "C:\\Users\\lwz12\\AppData\\Local\\Microsoft\\WinGet\\Packages\\OpenJS.NodeJS_Microsoft.Winget.Source_8wekyb3d8bbwe\\node-v26.7.0-win-x64\\node.exe",
+  "nodeOptions": "--use-system-ca",
   "dshWorkingDir": "%USERPROFILE%",
   "waitTimeoutMs": 90000,
   "stopServiceOnExit": false,

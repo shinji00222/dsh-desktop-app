@@ -51,6 +51,7 @@ const DEFAULTS = {
   dshCommand: '%LOCALAPPDATA%\\pnpm\\bin\\dsh.cmd',
   dshVersion: '0.1.5-alpha.2',
   nodeExe: '',
+  nodeOptions: '--use-system-ca',
   dshWorkingDir: process.env.USERPROFILE || process.cwd(),
   waitTimeoutMs: 90000,
   stopServiceOnExit: false,
@@ -86,6 +87,7 @@ function loadConfig() {
     DSH_APP_VERSION: 'dshVersion',
     DSH_APP_NODE: 'nodeExe',
     DSH_APP_NODE_EXE: 'nodeExe',
+    DSH_APP_NODE_OPTIONS: 'nodeOptions',
     DSH_APP_WORKDIR: 'dshWorkingDir',
     DSH_APP_WAIT_MS: 'waitTimeoutMs',
   }
@@ -142,6 +144,22 @@ function buildServiceEnv(config) {
   if (unique.length) {
     env[pathKey] = [...unique, env[pathKey]].filter(Boolean).join(path.delimiter)
     log(`service PATH prepend: ${unique.join(path.delimiter)}`)
+  }
+  if (config.nodeOptions) {
+    const existing = env.NODE_OPTIONS || ''
+    const required = String(config.nodeOptions)
+      .split(/\s+/)
+      .map((part) => part.trim())
+      .filter(Boolean)
+    const merged = existing
+      .split(/\s+/)
+      .map((part) => part.trim())
+      .filter(Boolean)
+    for (const opt of required) {
+      if (!merged.includes(opt)) merged.push(opt)
+    }
+    env.NODE_OPTIONS = merged.join(' ')
+    log(`service NODE_OPTIONS: ${env.NODE_OPTIONS}`)
   }
   return env
 }
